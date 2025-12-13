@@ -9,9 +9,13 @@ export type AdapterResponse = {
   error?: string;
 };
 
+// 🛑 CRITICAL FIX: Use the live Render URL for deployment
+const BACKEND_URL = "https://matagent-forge-api.onrender.com";
+// You can comment this out and use: const BACKEND_URL = "http://localhost:8000"; for local dev.
+
 export async function sendMessageToBackend(message: string): Promise<AdapterResponse> {
   try {
-    const res = await fetch("http://localhost:8000/api/analyze", {
+    const res = await fetch(`${BACKEND_URL}/api/analyze`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ material_name: message }),
