@@ -1,0 +1,22 @@
+# LLM + Agent Frameworks
+langchain
+langchain-groq
+langchain-core
+langchain-community
+groq
+tiktoken
+python-dotenv
+
+# Materials Science Libraries
+pymatgen
+mp-api
+ase
+
+# Data Handling
+numpy
+pandas
+scikit-learn
+
+# Utilities
+requests
+matplotlib

@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: matagent-forge-api
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
+    # IMPORTANT: Assumes main.py is in the root of the repo. Keep rootDir: . 
+    rootDir: .
