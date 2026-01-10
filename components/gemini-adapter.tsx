@@ -9,9 +9,8 @@ export type AdapterResponse = {
   error?: string;
 };
 
-// 🛑 CRITICAL FIX: Use the live Render URL for deployment
-const BACKEND_URL = "https://matagent-forge-api.onrender.com";
-// You can comment this out and use: const BACKEND_URL = "http://localhost:8000"; for local dev.
+// Backend API URL - update this to your production URL when deploying
+const BACKEND_URL = "http://localhost:8000";
 
 export async function sendMessageToBackend(message: string): Promise<AdapterResponse> {
   try {
