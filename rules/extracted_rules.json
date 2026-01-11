@@ -46,5 +46,61 @@
     "source_paper_id": "http://arxiv.org/abs/2504.00741v1",
     "source_section": "abstract",
     "rule_id": 5
+  },
+  {
+    "rule_text": "Formation energy < -2.0 eV → Thermodynamically stable",
+    "category": "property_application",
+    "confidence": 1.0,
+    "source_paper_id": "http://arxiv.org/abs/1904.10423v2",
+    "source_section": "abstract",
+    "rule_id": 6
+  },
+  {
+    "rule_text": "Formation energy difference < 0.5 eV → Metastable synthesis possible",
+    "category": "synthesis",
+    "confidence": 1.0,
+    "source_paper_id": "http://arxiv.org/abs/2210.11931v1",
+    "source_section": "abstract",
+    "rule_id": 7
+  },
+  {
+    "rule_text": "Energy above hull < 0.05 eV/atom → Stable phase",
+    "category": "stability",
+    "confidence": 1.0,
+    "source_paper_id": "http://arxiv.org/abs/2504.00741v1",
+    "source_section": "abstract",
+    "rule_id": 8
+  },
+  {
+    "rule_text": "Temperature > 1000°C → High-temperature phase stable",
+    "category": "synthesis",
+    "confidence": 1.0,
+    "source_paper_id": "http://arxiv.org/abs/1905.03938v1",
+    "source_section": "abstract",
+    "rule_id": 9
+  },
+  {
+    "rule_text": "Band gap > 3.0 eV → Optoelectronics",
+    "category": "property_application",
+    "confidence": 1.0,
+    "source_paper_id": "http://arxiv.org/abs/2404.06120v1",
+    "source_section": "abstract",
+    "rule_id": 10
+  },
+  {
+    "rule_text": "Bulk modulus > 200 GPa → Structural applications",
+    "category": "property_application",
+    "confidence": 1.0,
+    "source_paper_id": "http://arxiv.org/abs/2404.06120v1",
+    "source_section": "abstract",
+    "rule_id": 11
+  },
+  {
+    "rule_text": "Formation energy < -1.0 eV → Easily synthesizable",
+    "category": "stability",
+    "confidence": 1.0,
+    "source_paper_id": "http://arxiv.org/abs/1808.10869v2",
+    "source_section": "abstract",
+    "rule_id": 12
   }
 ]

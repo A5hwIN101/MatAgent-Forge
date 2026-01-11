@@ -7,7 +7,7 @@ MatAgent-Forge is a modern, physics-aware multi-agent system designed to acceler
 MatAgent-Forge follows a **client-server architecture** with a Next.js frontend and FastAPI backend, orchestrated by a multi-agent system:
 
 ```
-┌─────────────────┐
+┌─────────────────┐  
 │  Next.js UI     │  ← React/TypeScript, Tailwind CSS, Real-time Streaming
 └────────┬────────┘
          │ HTTP/REST
@@ -263,6 +263,68 @@ The endpoint returns a streaming response with markdown-formatted analysis.
   4. M3GNet energy prediction
   5. Convex hull stability (if competing phases available)
   6. Verdict: Feasible / Metastable / Not Feasible
+
+---
+
+## 📚 Paper Scraper & Rule Engine (Phase 1a)
+
+MatAgent-Forge now includes an automated paper scraper that extracts domain knowledge from research papers to power its rule engine.
+
+### Features
+- **Paper Scraping**: Query arXiv and PubMed Central (PMC) for materials science research
+- **Rule Extraction**: Use LLM to extract actionable rules from paper abstracts
+- **Rule Storage**: Persistent JSON-based rule database with indexing and search
+- **Rule Loading**: Cache rules in-memory for fast access during analysis
+
+### Rule Categories Extracted
+- **Material-Property Relationships**: e.g., "High band gap → optoelectronics"
+- **Stability Indicators**: e.g., "Materials with negative formation energy are stable"
+- **Synthesis Feasibility**: e.g., "Perovskites require specific stoichiometric ratios"
+- **Application Predictions**: e.g., "Semiconductors with Eg 3-5eV for UV detectors"
+
+### Using the Paper Scraper
+
+**Run the full pipeline** (scrape → extract → store):
+```bash
+conda activate matagent310
+python -m src.data_sources.main_orchestrator --limit 10 --source arxiv
+```
+
+**Arguments:**
+- `--limit N`: Maximum number of papers to scrape (default: 10)
+- `--source [arxiv|pmc|both]`: Which source to scrape (default: arxiv)
+- `--keywords`: Custom keywords (default: materials science related)
+- `--samples`: Show sample rules after extraction (default: True)
+
+**Output:**
+- `rules/extracted_rules.json` - All extracted rules with metadata
+- `rules/rule_metadata.json` - Paper sources and extraction metadata
+- `rules/rule_index.json` - Searchable index by category and keyword
+
+### Integration with Analysis Agent
+
+Rules are automatically loaded at startup and used to improve hypothesis generation:
+```python
+from src.data_sources.rule_loader import RuleLoader
+
+loader = RuleLoader()
+relevant_rules = loader.get_rules_for_analysis(material_properties)
+# Use relevant_rules to enhance analysis
+```
+
+### Project Structure
+src/data_sources/
+├── paper_scraper.py      # arXiv & PMC API wrapper
+├── rule_extractor.py     # LLM-based rule extraction
+├── rule_storage.py       # JSON rule persistence & indexing
+├── rule_loader.py        # Rule loading & caching
+└── main_orchestrator.py  # CLI pipeline coordinator
+rules/
+├── extracted_rules.json  # All extracted rules
+├── rule_metadata.json    # Paper metadata
+└── rule_index.json       # Searchable index
+
+---
 
 ## 📊 Technology Stack
 

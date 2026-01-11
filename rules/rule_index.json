@@ -6,134 +6,225 @@
       5
     ],
     "stability": [
-      2
+      2,
+      8,
+      12
     ],
     "synthesis": [
       3,
-      4
+      4,
+      7,
+      9
+    ],
+    "property_application": [
+      6,
+      10,
+      11
     ]
   },
   "keyword": {
+    "electronegativity": [
+      0
+    ],
     "promising": [
       0
     ],
-    "charge": [
+    "neutrality": [
       0
     ],
-    "compounds.": [
+    "guidelines": [
       0
     ],
     "chemical": [
       0,
       1
     ],
-    "guidelines": [
+    "compounds.": [
       0
     ],
-    "neutrality": [
+    "charge": [
       0
     ],
-    "electronegativity": [
-      0
+    "guidelines,": [
+      1
     ],
-    "desirable": [
+    "associated": [
       1
     ],
     "properties": [
       1
     ],
-    "learns": [
-      1
+    "specific": [
+      1,
+      5
     ],
-    "materials.": [
+    "learns": [
       1
     ],
     "model": [
       1,
       3
     ],
-    "specific": [
-      1,
-      5
+    "that": [
+      1
     ],
-    "associated": [
+    "materials.": [
       1
     ],
     "implying": [
-      1
-    ],
-    "that": [
       1
     ],
     "materials": [
       2,
       4
     ],
-    "energy": [
-      2
+    "formation": [
+      2,
+      6,
+      7,
+      12
     ],
     "negative": [
       2
     ],
+    "energy": [
+      2,
+      6,
+      7,
+      8,
+      12
+    ],
     "stable.": [
       2
-    ],
-    "formation": [
-      2
-    ],
-    "diffusion-based": [
-      3
     ],
     "used.": [
       3
     ],
-    "crystal": [
-      3
-    ],
-    "structure": [
+    "diffusion-based": [
       3
     ],
     "generative": [
       3
     ],
+    "structure": [
+      3
+    ],
     "estimation": [
       3
     ],
-    "(llms)": [
-      4
+    "crystal": [
+      3
     ],
-    "discovery.": [
-      4
-    ],
-    "models": [
-      4
-    ],
-    "used": [
-      4
-    ],
-    "inorganic": [
+    "large": [
       4
     ],
     "language": [
       4
     ],
-    "large": [
+    "discovery.": [
       4
     ],
-    "mentioned.": [
-      5
+    "used": [
+      4
     ],
-    "relationships": [
-      5
+    "models": [
+      4
     ],
-    "application": [
-      5
+    "(llms)": [
+      4
+    ],
+    "inorganic": [
+      4
     ],
     "predictions": [
       5
     ],
     "material-property": [
       5
+    ],
+    "application": [
+      5
+    ],
+    "relationships": [
+      5
+    ],
+    "mentioned.": [
+      5
+    ],
+    "stable": [
+      6,
+      8,
+      9
+    ],
+    "thermodynamically": [
+      6
+    ],
+    "-2.0": [
+      6
+    ],
+    "metastable": [
+      7
+    ],
+    "synthesis": [
+      7
+    ],
+    "possible": [
+      7
+    ],
+    "difference": [
+      7
+    ],
+    "ev/atom": [
+      8
+    ],
+    "above": [
+      8
+    ],
+    "0.05": [
+      8
+    ],
+    "hull": [
+      8
+    ],
+    "phase": [
+      8,
+      9
+    ],
+    "temperature": [
+      9
+    ],
+    "high-temperature": [
+      9
+    ],
+    "1000°c": [
+      9
+    ],
+    "band": [
+      10
+    ],
+    "optoelectronics": [
+      10
+    ],
+    "modulus": [
+      11
+    ],
+    "bulk": [
+      11
+    ],
+    "applications": [
+      11
+    ],
+    "structural": [
+      11
+    ],
+    "-1.0": [
+      12
+    ],
+    "synthesizable": [
+      12
+    ],
+    "easily": [
+      12
     ]
   }
 }
