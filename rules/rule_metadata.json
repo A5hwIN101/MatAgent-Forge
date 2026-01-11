@@ -1,0 +1,24 @@
+{
+  "http://arxiv.org/abs/2210.11931v1": {
+    "title": "Deep Reinforcement Learning for Inverse Inorganic Materials Design",
+    "authors": [
+      "Elton Pan",
+      "Christopher Karpovich",
+      "Elsa Olivetti"
+    ],
+    "url": "http://arxiv.org/abs/2210.11931v1",
+    "extraction_date": "2026-01-11T15:28:51.509675",
+    "rules_count": 2
+  },
+  "http://arxiv.org/abs/2504.00741v1": {
+    "title": "Accelerated Inorganic Materials Design with Generative AI Agents",
+    "authors": [
+      "Izumi Takahara",
+      "Teruyasu Mizoguchi",
+      "Bang Liu"
+    ],
+    "url": "http://arxiv.org/abs/2504.00741v1",
+    "extraction_date": "2026-01-11T15:28:52.173511",
+    "rules_count": 4
+  }
+}

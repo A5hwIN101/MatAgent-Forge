@@ -1,0 +1,50 @@
+[
+  {
+    "rule_text": "Charge and electronegativity neutrality are chemical guidelines for promising compounds.",
+    "category": "material_property",
+    "confidence": 1.0,
+    "source_paper_id": "http://arxiv.org/abs/2210.11931v1",
+    "source_section": "abstract",
+    "rule_id": 0
+  },
+  {
+    "rule_text": "The model learns chemical guidelines, implying that specific chemical properties are associated with desirable materials.",
+    "category": "material_property",
+    "confidence": 1.0,
+    "source_paper_id": "http://arxiv.org/abs/2210.11931v1",
+    "source_section": "abstract",
+    "rule_id": 1
+  },
+  {
+    "rule_text": "Materials with negative formation energy are stable.",
+    "category": "stability",
+    "confidence": 1.0,
+    "source_paper_id": "http://arxiv.org/abs/2504.00741v1",
+    "source_section": "abstract",
+    "rule_id": 2
+  },
+  {
+    "rule_text": "A diffusion-based generative model for crystal structure estimation can be used.",
+    "category": "synthesis",
+    "confidence": 0.8,
+    "source_paper_id": "http://arxiv.org/abs/2504.00741v1",
+    "source_section": "abstract",
+    "rule_id": 3
+  },
+  {
+    "rule_text": "Large language models (LLMs) can be used for inorganic materials discovery.",
+    "category": "synthesis",
+    "confidence": 0.8,
+    "source_paper_id": "http://arxiv.org/abs/2504.00741v1",
+    "source_section": "abstract",
+    "rule_id": 4
+  },
+  {
+    "rule_text": "No specific material-property relationships or application predictions are mentioned.",
+    "category": "material_property",
+    "confidence": 0.0,
+    "source_paper_id": "http://arxiv.org/abs/2504.00741v1",
+    "source_section": "abstract",
+    "rule_id": 5
+  }
+]

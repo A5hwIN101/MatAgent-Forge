@@ -1,0 +1,139 @@
+{
+  "category": {
+    "material_property": [
+      0,
+      1,
+      5
+    ],
+    "stability": [
+      2
+    ],
+    "synthesis": [
+      3,
+      4
+    ]
+  },
+  "keyword": {
+    "promising": [
+      0
+    ],
+    "charge": [
+      0
+    ],
+    "compounds.": [
+      0
+    ],
+    "chemical": [
+      0,
+      1
+    ],
+    "guidelines": [
+      0
+    ],
+    "neutrality": [
+      0
+    ],
+    "electronegativity": [
+      0
+    ],
+    "desirable": [
+      1
+    ],
+    "properties": [
+      1
+    ],
+    "learns": [
+      1
+    ],
+    "materials.": [
+      1
+    ],
+    "model": [
+      1,
+      3
+    ],
+    "specific": [
+      1,
+      5
+    ],
+    "associated": [
+      1
+    ],
+    "implying": [
+      1
+    ],
+    "that": [
+      1
+    ],
+    "materials": [
+      2,
+      4
+    ],
+    "energy": [
+      2
+    ],
+    "negative": [
+      2
+    ],
+    "stable.": [
+      2
+    ],
+    "formation": [
+      2
+    ],
+    "diffusion-based": [
+      3
+    ],
+    "used.": [
+      3
+    ],
+    "crystal": [
+      3
+    ],
+    "structure": [
+      3
+    ],
+    "generative": [
+      3
+    ],
+    "estimation": [
+      3
+    ],
+    "(llms)": [
+      4
+    ],
+    "discovery.": [
+      4
+    ],
+    "models": [
+      4
+    ],
+    "used": [
+      4
+    ],
+    "inorganic": [
+      4
+    ],
+    "language": [
+      4
+    ],
+    "large": [
+      4
+    ],
+    "mentioned.": [
+      5
+    ],
+    "relationships": [
+      5
+    ],
+    "application": [
+      5
+    ],
+    "predictions": [
+      5
+    ],
+    "material-property": [
+      5
+    ]
+  }
+}
