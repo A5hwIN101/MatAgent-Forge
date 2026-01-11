@@ -11,7 +11,7 @@ from src.agents.data_agent import parse_dataset
 from src.agents.analysis_agent import analyze_material
 from src.agents.hypothesis_agent import generate_hypothesis
 from src.agents.simulation_agent import run_simulation_agent
-from src.orchestrator.formatter import assemble_markdown # adjust if your path differs
+from src.orchestrator.formatter import assemble_markdown, format_rules_section # adjust if your path differs
 
 # --- FastAPI Setup ---
 app = FastAPI(title="MatAgent-Forge API")
@@ -31,12 +31,71 @@ def assemble_simulation_markdown(sim_result):
     lines = []
     lines.append("## 🔬 Simulation Feasibility")
     lines.append(f"**Verdict:** {sim_result.verdict}")
-    if sim_result.details and sim_result.details.get("estimated_formation_energy_ev_per_atom") is not None:
-        efe = sim_result.details["estimated_formation_energy_ev_per_atom"]
-        lines.append(f"**Estimated formation energy:** {efe:.2f} eV/atom (heuristic)")
+    
+    # Check for formation energy in details
+    if sim_result.details:
+        est_fe = sim_result.details.get("formation_energy_ev_per_atom") or sim_result.details.get("estimated_formation_energy_ev_per_atom")
+        if est_fe is not None:
+            lines.append(f"**Estimated formation energy:** {est_fe:.2f} eV/atom")
+        ehull = sim_result.details.get("ehull_ev_per_atom")
+        if ehull is not None:
+            lines.append(f"**Energy above hull:** {ehull:.3f} eV/atom")
+    
     lines.append("\n## ⚙️ Parameter Decisions")
+    
+    # Format reasoning, extracting rules where present
+    rules_added = False
     for r in sim_result.reasoning:
-        lines.append(f"- {r}")
+        if isinstance(r, str):
+            # Check if this line contains the rules summary header
+            if "**Supported by literature rules" in r:
+                # Extract main text before rules section (if any)
+                parts = r.split("**Supported by literature rules")
+                main_text = parts[0].strip()
+                if main_text:
+                    lines.append(f"- {main_text}")
+                
+                # Use supporting_rules from sim_result if available (cleaner than parsing text)
+                if hasattr(sim_result, 'supporting_rules') and sim_result.supporting_rules:
+                    rules_text = format_rules_section(sim_result.supporting_rules, max_rules=5)
+                    if rules_text:
+                        # Format rules section - already has proper indentation
+                        # Split and add each line (skip empty lines)
+                        for rule_line in rules_text.split('\n'):
+                            if rule_line.strip():
+                                lines.append(rule_line)
+                        rules_added = True
+                else:
+                    # Fallback: parse rules from text
+                    rules_text_section = parts[1] if len(parts) > 1 else ""
+                    if rules_text_section:
+                        # Try to parse rules from the text section
+                        from src.orchestrator.formatter import parse_rule_from_text
+                        rules_found = []
+                        for line in rules_text_section.split('\n'):
+                            if '•' in line:
+                                rule_info = parse_rule_from_text(line)
+                                if rule_info:
+                                    rules_found.append(rule_info)
+                        if rules_found:
+                            rules_text = format_rules_section(rules_found, max_rules=5)
+                            for rule_line in rules_text.split('\n'):
+                                if rule_line.strip():
+                                    lines.append(rule_line)
+                            rules_added = True
+            else:
+                # Regular reasoning line
+                lines.append(f"- {r}")
+        else:
+            lines.append(f"- {r}")
+    
+    # If we have supporting_rules but they weren't included in reasoning, add them separately
+    if hasattr(sim_result, 'supporting_rules') and sim_result.supporting_rules and not rules_added:
+        if sim_result.rule_count > 0:
+            rules_text = format_rules_section(sim_result.supporting_rules, max_rules=5)
+            if rules_text:
+                lines.append(f"\n**Literature Rules Supporting This Analysis:**{rules_text}")
+    
     lines.append("\n> Note: Simulation-backed reasoning. This is not authoritative database data.")
     return "\n".join(lines)
 

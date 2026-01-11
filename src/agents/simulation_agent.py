@@ -1,7 +1,8 @@
 # src/agents/simulation_agent.py
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Tuple
 import re
+import logging
 from pymatgen.core import Lattice, Structure
 
 # --- pymatgen + m3gnet ---
@@ -11,6 +12,19 @@ from pymatgen.analysis.phase_diagram import PhaseDiagram, PDEntry
 from m3gnet.models import M3GNet
 # Load M3GNet once globally
 m3gnet_model = M3GNet.load()
+
+# --- Rule loading ---
+logger = logging.getLogger(__name__)
+
+try:
+    from src.data_sources.rule_loader import RuleLoader
+    rule_loader = RuleLoader()
+    rules_cache = rule_loader.load_rules()
+    logger.info(f"Loaded {len(rules_cache)} rules into cache")
+except Exception as e:
+    logger.warning(f"Failed to load rules: {e}. Continuing without rule support.")
+    rule_loader = None
+    rules_cache = []
 
 # --- Domain data (minimal; extend as needed) ---
 ELECTRONEGATIVITY = {
@@ -47,6 +61,8 @@ class SimulationResult:
     verdict: str
     reasoning: List[str]
     details: Dict[str, Optional[float]]
+    supporting_rules: List[Dict] = field(default_factory=list)
+    rule_count: int = 0
 
 # --- Basic competing phase library for Ehull ---
 # Each entry: system key (tuple of elements) → list of (Composition, energy_per_atom)
@@ -356,24 +372,88 @@ def compute_ehull(formula: str, candidate_energy: float, competing_phases: List[
     except Exception as e:
         return None, f"Ehull computation failed: {e}"
 
+# --- Rule helper functions ---
+def get_rules_for_check(check_type: str, material_props: Dict = None) -> List[Dict]:
+    """
+    Get relevant rules for a specific feasibility check.
+    
+    Args:
+        check_type: Type of check ('stability', 'synthesis', 'chemical', 'property', 'stoichiometry')
+        material_props: Optional material properties dict for context
+        
+    Returns:
+        List of matching rules with confidence >= 0.7
+    """
+    if rule_loader is None:
+        return []
+    
+    try:
+        # Map check_type to rule categories
+        category_mapping = {
+            'stability': 'stability',
+            'synthesis': 'synthesis',
+            'chemical': 'material_property',
+            'stoichiometry': 'material_property',
+            'property': 'property_application',
+        }
+        
+        category = category_mapping.get(check_type, check_type)
+        relevant_rules = rule_loader.get_rules_by_category(category)
+        
+        # Filter by confidence threshold
+        filtered_rules = [r for r in relevant_rules if r.get('confidence', 0) >= 0.7]
+        
+        # Sort by confidence (highest first)
+        filtered_rules.sort(key=lambda r: r.get('confidence', 0), reverse=True)
+        
+        logger.debug(f"Found {len(filtered_rules)} rules for check type '{check_type}' (category: '{category}')")
+        return filtered_rules
+    except Exception as e:
+        logger.warning(f"Error retrieving rules for check type '{check_type}': {e}")
+        return []
+
 # --- Main API ---
 def run_simulation_agent(formula: str) -> SimulationResult:
     composition = parse_formula(formula)
+    all_supporting_rules: List[Dict] = []
 
     # Step 1: Veto
     v_ok, v_just = check_stoichiometry_veto(composition)
     decisions: List[ParameterDecision] = [ParameterDecision("Stoichiometry Veto", v_ok, v_just)]
     if not v_ok:
+        # Get rules for stoichiometry/chemical feasibility
+        stoich_rules = get_rules_for_check('stoichiometry', composition)
+        chem_rules = get_rules_for_check('chemical', composition)
+        all_supporting_rules.extend(stoich_rules)
+        all_supporting_rules.extend(chem_rules)
+        # Remove duplicates (by rule_id)
+        seen_ids = set()
+        unique_rules = []
+        for r in all_supporting_rules:
+            rule_id = r.get('rule_id')
+            if rule_id not in seen_ids:
+                seen_ids.add(rule_id)
+                unique_rules.append(r)
+        
+        reasoning = [f"{decisions[0].name}: No — {v_just}"]
+        if unique_rules:
+            reasoning.append(f"Violates rule: {unique_rules[0].get('rule_text', 'Unknown rule')}")
+        
         return SimulationResult(
             "simulation",
             "Not feasible",
-            [f"{decisions[0].name}: No — {v_just}"],
-            {"formation_energy_ev_per_atom": None, "ehull_ev_per_atom": None}
+            reasoning,
+            {"formation_energy_ev_per_atom": None, "ehull_ev_per_atom": None},
+            supporting_rules=unique_rules,
+            rule_count=len(unique_rules)
         )
 
     # Step 2: Filters
     ok_en, just_en = electronegativity_trend(composition)
     decisions.append(ParameterDecision("Electronegativity", ok_en, just_en))
+    if ok_en:
+        chem_rules = get_rules_for_check('chemical', composition)
+        all_supporting_rules.extend(chem_rules)
 
     ok_analog, just_analog = analogue_comparison_hint(formula)
     decisions.append(ParameterDecision("Analogues", ok_analog, just_analog))
@@ -384,11 +464,26 @@ def run_simulation_agent(formula: str) -> SimulationResult:
     filters_pass = sum(1 for d in decisions[1:] if d.ok)
     filters_fail = len(decisions[1:]) - filters_pass
     if filters_fail >= 2:
+        # Remove duplicates before returning
+        seen_ids = set()
+        unique_rules = []
+        for r in all_supporting_rules:
+            rule_id = r.get('rule_id')
+            if rule_id not in seen_ids:
+                seen_ids.add(rule_id)
+                unique_rules.append(r)
+        
+        reasoning = [f"{d.name}: {'Yes' if d.ok else 'No'} — {d.justification}" for d in decisions]
+        if unique_rules:
+            reasoning.append(f"Supported by {len(unique_rules)} literature rule(s)")
+        
         return SimulationResult(
             "simulation",
             "Not feasible",
-            [f"{d.name}: {'Yes' if d.ok else 'No'} — {d.justification}" for d in decisions],
-            {"formation_energy_ev_per_atom": None, "ehull_ev_per_atom": None}
+            reasoning,
+            {"formation_energy_ev_per_atom": None, "ehull_ev_per_atom": None},
+            supporting_rules=unique_rules,
+            rule_count=len(unique_rules)
         )
 
     # Step 3: Structure → M3GNet → Ehull
@@ -404,12 +499,28 @@ def run_simulation_agent(formula: str) -> SimulationResult:
 
         if structure:
             est_fe, fe_msg = predict_formation_energy(structure)
-            decisions.append(ParameterDecision("Formation Energy (M3GNet)", est_fe is not None and est_fe < 0.0, fe_msg))
+            fe_ok = est_fe is not None and est_fe < 0.0
+            decisions.append(ParameterDecision("Formation Energy (M3GNet)", fe_ok, fe_msg))
+            
+            # Get stability rules based on formation energy
+            if est_fe is not None:
+                stability_rules = get_rules_for_check('stability', {'formation_energy': est_fe})
+                all_supporting_rules.extend(stability_rules)
+                
+                # Check for synthesis feasibility rules
+                synthesis_rules = get_rules_for_check('synthesis', {'formation_energy': est_fe})
+                all_supporting_rules.extend(synthesis_rules)
 
             competing_phases = get_competing_phases(formula)
             if competing_phases and est_fe is not None:
                 ehull, ehull_msg = compute_ehull(formula, est_fe, competing_phases)
-                decisions.append(ParameterDecision("Convex Hull Stability (Ehull)", ehull is not None and ehull <= 0.2, ehull_msg))
+                ehull_ok = ehull is not None and ehull <= 0.2
+                decisions.append(ParameterDecision("Convex Hull Stability (Ehull)", ehull_ok, ehull_msg))
+                
+                # Get stability rules based on ehull
+                if ehull is not None:
+                    stability_rules_ehull = get_rules_for_check('stability', {'ehull': ehull})
+                    all_supporting_rules.extend(stability_rules_ehull)
             else:
                 decisions.append(ParameterDecision("Convex Hull Stability (Ehull)", False, "No competing phases available for this system."))
         else:
@@ -431,10 +542,40 @@ def run_simulation_agent(formula: str) -> SimulationResult:
         else:
             verdict = "Metastable" if filters_pass >= 2 else "Uncertain"
 
+    # Remove duplicate rules (by rule_id)
+    seen_ids = set()
+    unique_rules = []
+    for r in all_supporting_rules:
+        rule_id = r.get('rule_id')
+        if rule_id not in seen_ids:
+            seen_ids.add(rule_id)
+            unique_rules.append(r)
+    
+    # Sort by confidence (highest first) and limit to top rules
+    unique_rules.sort(key=lambda r: r.get('confidence', 0), reverse=True)
+    top_rules = unique_rules[:5]  # Limit to top 5 rules for output
+    
     reasoning = [f"{d.name}: {'Yes' if d.ok else 'No'} — {d.justification}" for d in decisions]
+    
+    # Add rule references to reasoning if available
+    if top_rules:
+        rules_summary = f"\n**Supported by literature rules ({len(unique_rules)} total):**"
+        for rule in top_rules[:3]:  # Show top 3 in reasoning
+            rule_text = rule.get('rule_text', 'Unknown rule')
+            confidence = rule.get('confidence', 0.0)
+            rules_summary += f"\n  • {rule_text} (confidence: {confidence:.2f})"
+        reasoning.append(rules_summary)
+    
     details = {"formation_energy_ev_per_atom": est_fe, "ehull_ev_per_atom": ehull}
 
-    return SimulationResult("simulation", verdict, reasoning, details)
+    return SimulationResult(
+        "simulation", 
+        verdict, 
+        reasoning, 
+        details,
+        supporting_rules=unique_rules,
+        rule_count=len(unique_rules)
+    )
 
 
     # --- Optional: quick CLI test ---
