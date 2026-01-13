@@ -55,84 +55,143 @@ class RuleExtractor:
         )
         self.min_confidence = min_confidence
 
-        self.extraction_prompt_template = """You are an expert materials scientist. Extract QUANTITATIVE, DOMAIN-SPECIFIC RULES from the following research paper abstract.
+        self.extraction_prompt_template = """You are an expert materials scientist. Extract ONLY quantitative, domain-specific rules from this abstract.
 
 Abstract:
 {abstract}
 
-**CRITICAL: Extract rules in QUANTITATIVE FORMAT with domain context.**
+**CRITICAL: Extract ONLY quantitative rules with ALL required fields. Return ONLY valid JSON array.**
 
-**RULE TYPES TO EXTRACT:**
+**REQUIRED SCHEMA - Each rule MUST have ALL these fields:**
 
-1. **Stability Rules** (with convex hull thresholds):
-   - "Formation energy < -2.0 eV/atom → Thermodynamically stable"
-   - "Energy above hull < 0.05 eV/atom → Stable ground state"
-   - "0.05 < Energy above hull < 0.1 eV/atom → Metastable, synthesizable"
-   - "Energy above hull > 0.1 eV/atom → Unlikely to synthesize"
-
-2. **Band Gap Rules** (with domain-specific applications):
-   - "Band gap 1.0-1.5 eV → Photovoltaics (optimal for solar cells)"
-   - "Band gap 3.0-5.0 eV → Optoelectronics (UV detectors)"
-   - "Band gap 0.1-0.5 eV → Thermoelectric (good Seebeck coefficient)"
-
-3. **Mechanical Rules** (with structural applications):
-   - "Bulk modulus > 200 GPa → Structural applications (aerospace)"
-   - "Shear modulus > 100 GPa → High-strength materials (battery electrodes)"
-
-4. **Synthesis Rules** (with feasibility confidence):
-   - "Stoichiometry ratio 1:1:3 → Perovskite structure (feasible, 85% confidence)"
-   - "Formation energy difference < 0.5 eV → Metastable synthesis possible"
-
-5. **Phase Stability Rules**:
-   - "Temperature > 1000°C → High-temperature phase stable"
-   - "Pressure > 10 GPa → High-pressure polymorph"
-
-**REQUIRED OUTPUT FORMAT (JSON):**
-Each rule MUST follow this exact structure:
 {{
   "rule_type": "stability|band_gap|mechanical|synthesis|phase_stability",
-  "property": "formation_energy|band_gap|bulk_modulus|energy_above_hull|shear_modulus|temperature|pressure",
-  "threshold_value": 2.5,  // Single value for >, <, = operators
-  "threshold_unit": "eV|eV/atom|GPa|Angstrom|K|°C",
-  "operator": "<|>|=|in_range",  // Use "in_range" for range-based rules
-  "range_start": null,  // For range-based rules (e.g., "1.0-1.5 eV")
-  "range_end": null,  // For range-based rules
-  "application": "Thermodynamically stable|Optoelectronics|Structural material|Photovoltaics|Thermoelectric",
-  "domain": "general|photovoltaics|thermoelectric|battery|magnet|catalyst|optoelectronics|structural",
-  "evidence_strength": "strong|moderate|weak",  // Based on how explicitly stated
-  "statistical_confidence": 0.85,  // 0.0-1.0, based on frequency in abstract and evidence
-  "uncertainty": 0.1,  // Statistical uncertainty in threshold (e.g., ±0.1 eV)
+  "property": "formation_energy|band_gap|bulk_modulus|energy_above_hull|shear_modulus|temperature|pressure|composition",
+  "threshold_value": NUMBER (e.g., 2.5, -1.0, 1000) - REQUIRED,
+  "threshold_unit": "eV|eV/atom|GPa|MPa|K|°C|ratio" - REQUIRED,
+  "operator": ">|<|=|>=|<=|in_range" - REQUIRED,
+  "range_start": NUMBER or null (for "in_range" operator),
+  "range_end": NUMBER or null (for "in_range" operator),
+  "application": "TEXT describing application (e.g., Optoelectronics, Thermal stability)",
+  "domain": ["general"] or ["photovoltaics", "thermoelectric", "battery", "magnet", "catalyst", "optoelectronics", "structural"] - MUST be array,
+  "evidence_strength": "strong|moderate|weak",
+  "uncertainty": NUMBER (0.0-1.0),
+  "confidence": NUMBER (0.0-1.0),
   "rule_text": "Human-readable rule text with threshold"
 }}
 
-**CONFIDENCE SCORING GUIDELINES:**
-- statistical_confidence should be based on:
-  * Frequency: If rule mentioned multiple times in abstract → higher confidence
-  * Evidence strength: "strong" = 0.85-1.0, "moderate" = 0.65-0.84, "weak" = 0.5-0.64
-  * Explicit thresholds: Rules with exact numbers → higher confidence
-  * Domain specificity: Domain-specific rules → higher confidence
+**EXAMPLE VALID RULE:**
+{{
+  "rule_type": "band_gap",
+  "property": "band_gap",
+  "threshold_value": 3.0,
+  "threshold_unit": "eV",
+  "operator": ">",
+  "range_start": null,
+  "range_end": null,
+  "application": "Optoelectronics",
+  "domain": ["photovoltaics", "optoelectronics"],
+  "evidence_strength": "strong",
+  "uncertainty": 0.2,
+  "confidence": 0.85,
+  "rule_text": "Band gap > 3.0 eV → Optoelectronics applications"
+}}
+
+**RULE TYPES:**
+- "stability": Formation energy, energy above hull thresholds
+- "band_gap": Band gap thresholds for applications
+- "mechanical": Bulk modulus, shear modulus thresholds
+- "synthesis": Synthesis temperature, pressure, feasibility
+- "phase_stability": Phase transition temperatures, pressures
 
 **DOMAIN IDENTIFICATION:**
-- Identify the primary domain from context:
-  * "photovoltaics" / "PV" / "solar cell" → domain: "photovoltaics"
-  * "thermoelectric" / "Seebeck" / "ZT" → domain: "thermoelectric"
-  * "battery" / "electrode" / "anode" / "cathode" → domain: "battery"
-  * "magnet" / "magnetic" / "ferromagnetic" → domain: "magnet"
-  * "catalyst" / "catalytic" / "electrocatalyst" → domain: "catalyst"
-  * "optoelectronic" / "LED" / "detector" → domain: "optoelectronics"
-  * "structural" / "aerospace" / "mechanical" → domain: "structural"
-  * If unclear → domain: "general"
+- "photovoltaics": PV, solar cell, solar energy
+- "thermoelectric": Seebeck, ZT, thermoelectric
+- "battery": electrode, anode, cathode, battery
+- "magnet": magnetic, ferromagnetic, magnetization
+- "catalyst": catalytic, electrocatalyst, catalyst
+- "optoelectronics": LED, detector, optoelectronic
+- "structural": aerospace, mechanical, structural
+- "general": If unclear
 
-**CRITICAL REQUIREMENTS:**
-- ALL rules MUST have quantitative thresholds (numbers with units)
-- ALL rules MUST specify domain (even if "general")
-- Reject vague statements without thresholds
-- Extract convex hull stability rules explicitly (energy_above_hull thresholds)
-- Include uncertainty estimates when mentioned
+**CRITICAL RULES:**
+1. ALL fields must be populated (no "N/A", no empty strings, no null for required fields)
+2. threshold_value MUST be a NUMBER (not string, not null)
+3. operator MUST be one of: >, <, =, >=, <=, in_range
+4. domain MUST be an ARRAY (even if ["general"])
+5. If abstract has NO quantitative rules, return: []
+6. Do NOT return vague text rules without numeric thresholds
 
-Return ONLY a JSON array of rules. If no quantitative rules can be extracted, return [].
+**If you cannot extract quantitative data with ALL required fields, return empty array: []**
 
-JSON only, no additional text:"""
+Return ONLY a JSON array. No markdown, no explanation, no additional text."""
+
+    def validate_rule_schema(self, rule: dict) -> bool:
+        """
+        Validate rule has required fields with valid values.
+        
+        Args:
+            rule: Rule dictionary to validate (can be raw or enhanced)
+            
+        Returns:
+            True if rule has all required fields with valid values, False otherwise
+        """
+        required_fields = ['rule_type', 'property', 'threshold_value', 'operator', 'domain']
+        
+        for field in required_fields:
+            value = rule.get(field)
+            # Check if field is missing, None, 'N/A', or empty string
+            if value is None or value == 'N/A' or value == '':
+                logger.debug(f"Validation failed: field '{field}' is missing or invalid: {value}")
+                return False
+        
+        # Additional validation
+        # threshold_value must be a number (not string, not None)
+        threshold_value = rule.get('threshold_value')
+        if not isinstance(threshold_value, (int, float)):
+            logger.debug(f"Validation failed: threshold_value is not a number: {type(threshold_value)}, value: {threshold_value}")
+            return False
+        
+        # operator must be valid
+        valid_operators = ['>', '<', '=', '>=', '<=', 'in_range']
+        operator = rule.get('operator')
+        if operator not in valid_operators:
+            logger.debug(f"Validation failed: operator '{operator}' is not valid")
+            return False
+        
+        # domain must be an array (or at least not None/empty)
+        domain = rule.get('domain')
+        if not domain:
+            logger.debug(f"Validation failed: domain is missing or empty: {domain}")
+            return False
+        
+        # domain should be a list/array (handle backward compatibility with string)
+        if isinstance(domain, str):
+            # String is acceptable but we prefer array - this is backward compatible
+            pass
+        elif isinstance(domain, list):
+            # Array must not be empty
+            if len(domain) == 0:
+                logger.debug(f"Validation failed: domain array is empty")
+                return False
+        else:
+            logger.debug(f"Validation failed: domain is not string or array: {type(domain)}")
+            return False
+        
+        # property must not be empty string
+        property_name = rule.get('property')
+        if not property_name or property_name.strip() == '':
+            logger.debug(f"Validation failed: property is empty")
+            return False
+        
+        # rule_type must be valid
+        valid_rule_types = ["stability", "band_gap", "mechanical", "synthesis", "phase_stability"]
+        rule_type = rule.get('rule_type')
+        if rule_type not in valid_rule_types:
+            logger.debug(f"Validation failed: rule_type '{rule_type}' is not valid")
+            return False
+        
+        return True
 
     def extract_rules(self, abstract: str, paper_id: str, paper_title: str = "", publication_year: Optional[int] = None) -> List[Dict]:
         """
@@ -143,6 +202,7 @@ JSON only, no additional text:"""
         - Domain identification
         - Statistical confidence calculation
         - Validation and normalization
+        - Schema validation with retry logic
 
         Args:
             abstract: Paper abstract text
@@ -158,24 +218,75 @@ JSON only, no additional text:"""
             return []
 
         try:
+            # Step 1: Initial extraction
             prompt = self.extraction_prompt_template.format(abstract=abstract)
             response = self.llm.invoke(prompt)
-
-            # Extract text from response
             response_text = response.content if hasattr(response, 'content') else str(response)
 
             # Parse and enhance rules
-            rules = self._parse_rules_from_response(response_text, paper_id, abstract, paper_title, publication_year)
+            raw_rules = self._parse_rules_from_response(response_text, paper_id, abstract, paper_title, publication_year)
+            
+            # Step 2: Validate schema
+            valid_rules = [r for r in raw_rules if self.validate_rule_schema(r)]
+            invalid_count = len(raw_rules) - len(valid_rules)
+            
+            # Step 3: Retry logic if too many invalid
+            if len(raw_rules) > 0 and len(valid_rules) < len(raw_rules) * 0.5:
+                logger.warning(
+                    f"Only {len(valid_rules)}/{len(raw_rules)} rules passed validation for paper {paper_id}. "
+                    f"Retrying with stricter prompt..."
+                )
+                
+                # Retry with stricter prompt
+                stricter_prompt = self._get_stricter_prompt(abstract, invalid_count)
+                retry_response = self.llm.invoke(stricter_prompt)
+                retry_response_text = retry_response.content if hasattr(retry_response, 'content') else str(retry_response)
+                retry_rules = self._parse_rules_from_response(retry_response_text, paper_id, abstract, paper_title, publication_year)
+                
+                retry_valid = [r for r in retry_rules if self.validate_rule_schema(r)]
+                
+                if len(retry_valid) > len(valid_rules):
+                    logger.info(f"Retry improved validation: {len(retry_valid)}/{len(retry_rules)} rules valid")
+                    valid_rules = retry_valid
+                    raw_rules = retry_rules  # Update for fallback processing
+            
+            # Step 4: Graceful fallback - accept invalid rules but flag them
+            all_rules = []
+            for rule in raw_rules:
+                if self.validate_rule_schema(rule):
+                    all_rules.append(rule)
+                else:
+                    # Flag incomplete schemas with low confidence
+                    rule['confidence'] = min(rule.get('confidence', 0.5), 0.5)
+                    rule['statistical_confidence'] = min(rule.get('statistical_confidence', 0.5), 0.5)
+                    rule['validation_status'] = 'incomplete_schema'
+                    logger.warning(
+                        f"Rule extracted but schema incomplete for paper {paper_id}: "
+                        f"rule_type={rule.get('rule_type')}, property={rule.get('property')}, "
+                        f"domain={rule.get('domain')}"
+                    )
+                    # Still add the rule but with low confidence
+                    all_rules.append(rule)
+            
+            # Log validation statistics
+            total_extracted = len(raw_rules)
+            total_valid = len([r for r in all_rules if self.validate_rule_schema(r)])
+            total_incomplete = len([r for r in all_rules if r.get('validation_status') == 'incomplete_schema'])
+            
+            logger.info(
+                f"Paper {paper_id}: Extracted {total_extracted} rules, "
+                f"{total_valid} valid schema, {total_incomplete} incomplete schema"
+            )
             
             # Filter by confidence threshold
             filtered_rules = [
-                r for r in rules 
+                r for r in all_rules 
                 if r.get('statistical_confidence', r.get('confidence', 0)) >= self.min_confidence
             ]
             
             logger.info(
-                f"Extracted {len(filtered_rules)} rules (confidence >= {self.min_confidence}) "
-                f"from {len(rules)} total extracted from paper {paper_id}"
+                f"Filtered to {len(filtered_rules)} rules (confidence >= {self.min_confidence}) "
+                f"from {len(all_rules)} total extracted from paper {paper_id}"
             )
             
             return filtered_rules
@@ -214,10 +325,17 @@ JSON only, no additional text:"""
                 parsed_rules = [parsed_rules]
 
             # Process each rule
-            for rule in parsed_rules:
-                if isinstance(rule, dict):
-                    enhanced_rule = self._enhance_rule(rule, abstract, paper_id, paper_title, publication_year)
+            for raw_rule in parsed_rules:
+                if isinstance(raw_rule, dict):
+                    # Store validation status before enhancement
+                    was_valid_raw = self.validate_rule_schema(raw_rule)
+                    
+                    # Enhance rule (even if invalid - we'll flag it later)
+                    enhanced_rule = self._enhance_rule(raw_rule, abstract, paper_id, paper_title, publication_year)
                     if enhanced_rule:
+                        # Preserve validation status from raw rule
+                        if not was_valid_raw:
+                            enhanced_rule['_was_invalid_raw'] = True
                         rules.append(enhanced_rule)
 
         except json.JSONDecodeError as e:
@@ -263,21 +381,30 @@ JSON only, no additional text:"""
         range_start = rule.get("range_start")
         range_end = rule.get("range_end")
         application = rule.get("application", "")
-        domain = rule.get("domain", "general")
+        domain_raw = rule.get("domain", "general")
         evidence_strength = rule.get("evidence_strength", "moderate")
-        statistical_confidence = float(rule.get("statistical_confidence", 0.7))
+        statistical_confidence = float(rule.get("statistical_confidence", rule.get("confidence", 0.7)))
         uncertainty = float(rule.get("uncertainty", 0.0))
 
         # Validate rule_type
         valid_rule_types = ["stability", "band_gap", "mechanical", "synthesis", "phase_stability"]
-        if rule_type not in valid_rule_types:
+        if rule_type not in valid_rule_types or rule_type in [None, "N/A", ""]:
             rule_type = "stability"  # Default
 
-        # Validate domain
+        # Handle domain - convert string to array if needed (backward compatibility)
+        if isinstance(domain_raw, list):
+            domain = domain_raw
+        elif isinstance(domain_raw, str) and domain_raw not in [None, "N/A", ""]:
+            domain = [domain_raw]
+        else:
+            domain = ["general"]
+        
+        # Validate domain values
         valid_domains = ["general", "photovoltaics", "thermoelectric", "battery", "magnet", 
                         "catalyst", "optoelectronics", "structural"]
-        if domain not in valid_domains:
-            domain = "general"
+        domain = [d for d in domain if d in valid_domains]
+        if not domain:
+            domain = ["general"]
 
         # Calculate frequency-based confidence adjustment
         frequency_boost = self._calculate_frequency_boost(rule_text, abstract)
@@ -313,10 +440,70 @@ JSON only, no additional text:"""
             "source_section": "abstract",
             "publication_year": publication_year,
             "rule_frequency": self._count_rule_mentions(rule_text, abstract),
-            "validation_status": "extracted"
+            "validation_status": rule.get("validation_status", "extracted")
         }
 
+        # Ensure confidence field exists for backward compatibility
+        if "confidence" not in enhanced_rule:
+            enhanced_rule["confidence"] = enhanced_rule["statistical_confidence"]
+
         return enhanced_rule
+
+    def _get_stricter_prompt(self, abstract: str, invalid_count: int) -> str:
+        """
+        Generate a stricter prompt for retry when validation fails.
+        
+        Args:
+            abstract: Paper abstract text
+            invalid_count: Number of invalid rules from first attempt
+            
+        Returns:
+            Stricter prompt string
+        """
+        return f"""You are an expert materials scientist. Extract ONLY quantitative, domain-specific rules with COMPLETE SCHEMA.
+
+Abstract:
+{abstract}
+
+**CRITICAL: Previous extraction had {invalid_count} invalid rules with missing or "N/A" fields. This retry MUST return ONLY complete rules.**
+
+**EVERY rule MUST have ALL these fields with REAL values (no "N/A", no null for required fields):**
+
+REQUIRED FIELDS:
+- "rule_type": MUST be one of: "stability", "band_gap", "mechanical", "synthesis", "phase_stability"
+- "property": MUST be one of: "formation_energy", "band_gap", "bulk_modulus", "energy_above_hull", "shear_modulus", "temperature", "pressure", "composition"
+- "threshold_value": MUST be a NUMBER (e.g., 2.5, -1.0, 1000) - NOT null, NOT "N/A"
+- "threshold_unit": MUST be: "eV", "eV/atom", "GPa", "MPa", "K", "°C", "ratio"
+- "operator": MUST be: ">", "<", "=", ">=", "<=", or "in_range"
+- "domain": MUST be an ARRAY like ["photovoltaics"] or ["general"] - NOT string, NOT null
+- "confidence": MUST be a NUMBER between 0.0 and 1.0
+- "rule_text": MUST describe the quantitative rule
+
+**VALID EXAMPLE (copy this structure exactly):**
+[
+  {{
+    "rule_type": "band_gap",
+    "property": "band_gap",
+    "threshold_value": 3.0,
+    "threshold_unit": "eV",
+    "operator": ">",
+    "range_start": null,
+    "range_end": null,
+    "application": "Optoelectronics",
+    "domain": ["photovoltaics", "optoelectronics"],
+    "evidence_strength": "strong",
+    "uncertainty": 0.2,
+    "confidence": 0.85,
+    "rule_text": "Band gap > 3.0 eV → Optoelectronics applications"
+  }}
+]
+
+**CRITICAL:**
+- If you cannot extract a rule with ALL required fields populated (no nulls, no "N/A"), DO NOT include it
+- Return [] if abstract has no quantitative rules with complete schema
+- domain MUST be an array: ["general"] or ["photovoltaics"] NOT "general" as string
+
+Return ONLY valid JSON array. No markdown, no explanation."""
 
     def _calculate_frequency_boost(self, rule_text: str, abstract: str) -> float:
         """
