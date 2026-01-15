@@ -1,12 +1,40 @@
-def generate_hypothesis(parsed: dict) -> list:
+# ============================================================================
+# HYPOTHESIS AGENT
+# File: src/agents/hypothesis_agent.py
+# Purpose: Generate application hypotheses from analyzed material properties
+# ============================================================================
+
+from typing import List, Dict, Any, Optional
+
+
+def safe_float(val: Any) -> Optional[float]:
+    """
+    Safely convert a value to float.
+    
+    Args:
+        val: Value to convert
+    
+    Returns:
+        Float value or None if conversion fails
+    """
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return None
+
+
+def generate_hypothesis(parsed: Dict[str, Any]) -> List[str]:
+    """
+    Generate application hypotheses from material properties.
+    
+    Args:
+        parsed: Dictionary of material properties
+    
+    Returns:
+        List of hypothesis strings
+    """
     print("DEBUG parsed keys:", list(parsed.keys()))
     hypotheses = []
-
-    def safe_float(val):
-        try:
-            return float(val)
-        except (ValueError, TypeError):
-            return None
 
     band_gap = safe_float(parsed.get("band_gap"))
     e_hull = safe_float(parsed.get("energy_above_hull"))
@@ -44,3 +72,56 @@ def generate_hypothesis(parsed: dict) -> list:
         hypotheses.append("No specific hypotheses generated from available data.")
 
     return hypotheses
+
+
+# ============================================================================
+# HYPOTHESIS AGENT CLASS - For LangGraph Integration
+# ============================================================================
+
+class HypothesisAgent:
+    """
+    HypothesisAgent generates application hypotheses from material properties.
+    
+    This agent is designed to work with the LangGraph pipeline.
+    """
+    
+    def __init__(self):
+        """Initialize the HypothesisAgent."""
+        pass
+    
+    async def run(
+        self,
+        analysis: Dict[str, Any],
+        properties: Dict[str, Any]
+    ) -> List[Dict[str, str]]:
+        """
+        Generate hypotheses from analysis and properties.
+        
+        Args:
+            analysis: Dictionary of analyzed properties
+            properties: Dictionary of raw material properties
+        
+        Returns:
+            List of hypothesis dictionaries with 'hypothesis' and 'reasoning' keys
+        """
+        try:
+            print(f"[HypothesisAgent.run] Generating hypotheses")
+            
+            # Generate hypotheses from properties
+            hypothesis_strings = generate_hypothesis(properties)
+            
+            # Convert to structured format
+            hypotheses = [
+                {
+                    "hypothesis": h,
+                    "reasoning": "Derived from material properties analysis"
+                }
+                for h in hypothesis_strings
+            ]
+            
+            print(f"[HypothesisAgent.run] ✓ Generated {len(hypotheses)} hypotheses")
+            return hypotheses
+        
+        except Exception as e:
+            print(f"[HypothesisAgent.run] ✗ Error: {e}")
+            raise

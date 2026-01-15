@@ -1,197 +1,234 @@
-# src/orchestrator/main.py
+# Purpose: Integrate StateGraph into FastAPI endpoints
+# ============================================================================
 
-from fastapi import FastAPI, BackgroundTasks, Request
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
 import json
 import asyncio
-from typing import Iterator
+from typing import AsyncGenerator
 
-from src.agents.data_agent import parse_dataset
-from src.agents.analysis_agent import analyze_material
-from src.agents.hypothesis_agent import generate_hypothesis
-from src.agents.simulation_agent import run_simulation_agent
-from src.orchestrator.formatter import assemble_markdown, format_rules_section # adjust if your path differs
-
-# --- FastAPI Setup ---
-app = FastAPI(title="MatAgent-Forge API")
+from src.orchestrator.pipeline_graph import get_pipeline_graph, visualize_graph
+from src.orchestrator.pipeline_state import create_initial_state
 
 
-# Add CORS middleware to allow the Next.js frontend (on port 3000) to connect
+# ===== FASTAPI APP SETUP =====
+
+app = FastAPI(
+    title="MatAgent-Forge API",
+    description="AI-powered materials science discovery platform",
+    version="1.0.0"
+)
+
+# ===== CORS CONFIGURATION =====
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Allow all origins (change to specific domains in production)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-def assemble_simulation_markdown(sim_result):
-    lines = []
-    lines.append("## 🔬 Simulation Feasibility")
-    lines.append(f"**Verdict:** {sim_result.verdict}")
+# ===== ENDPOINTS =====
+
+@app.get("/health")
+async def health_check():
+    """
+    Health check endpoint.
     
-    # Check for formation energy in details
-    if sim_result.details:
-        est_fe = sim_result.details.get("formation_energy_ev_per_atom") or sim_result.details.get("estimated_formation_energy_ev_per_atom")
-        if est_fe is not None:
-            lines.append(f"**Estimated formation energy:** {est_fe:.2f} eV/atom")
-        ehull = sim_result.details.get("ehull_ev_per_atom")
-        if ehull is not None:
-            lines.append(f"**Energy above hull:** {ehull:.3f} eV/atom")
+    Returns:
+        {"status": "healthy"}
+    """
+    return {"status": "healthy"}
+
+
+@app.get("/debug/graph-structure")
+async def debug_graph_structure():
+    """
+    Debug endpoint: Print the graph structure.
     
-    lines.append("\n## ⚙️ Parameter Decisions")
-    
-    # Format reasoning, extracting rules where present
-    rules_added = False
-    for r in sim_result.reasoning:
-        if isinstance(r, str):
-            # Check if this line contains the rules summary header
-            if "**Supported by literature rules" in r:
-                # Extract main text before rules section (if any)
-                parts = r.split("**Supported by literature rules")
-                main_text = parts[0].strip()
-                if main_text:
-                    lines.append(f"- {main_text}")
-                
-                # Use supporting_rules from sim_result if available (cleaner than parsing text)
-                if hasattr(sim_result, 'supporting_rules') and sim_result.supporting_rules:
-                    rules_text = format_rules_section(sim_result.supporting_rules, max_rules=5)
-                    if rules_text:
-                        # Format rules section - already has proper indentation
-                        # Split and add each line (skip empty lines)
-                        for rule_line in rules_text.split('\n'):
-                            if rule_line.strip():
-                                lines.append(rule_line)
-                        rules_added = True
-                else:
-                    # Fallback: parse rules from text
-                    rules_text_section = parts[1] if len(parts) > 1 else ""
-                    if rules_text_section:
-                        # Try to parse rules from the text section
-                        from src.orchestrator.formatter import parse_rule_from_text
-                        rules_found = []
-                        for line in rules_text_section.split('\n'):
-                            if '•' in line:
-                                rule_info = parse_rule_from_text(line)
-                                if rule_info:
-                                    rules_found.append(rule_info)
-                        if rules_found:
-                            rules_text = format_rules_section(rules_found, max_rules=5)
-                            for rule_line in rules_text.split('\n'):
-                                if rule_line.strip():
-                                    lines.append(rule_line)
-                            rules_added = True
-            else:
-                # Regular reasoning line
-                lines.append(f"- {r}")
-        else:
-            lines.append(f"- {r}")
-    
-    # If we have supporting_rules but they weren't included in reasoning, add them separately
-    if hasattr(sim_result, 'supporting_rules') and sim_result.supporting_rules and not rules_added:
-        if sim_result.rule_count > 0:
-            rules_text = format_rules_section(sim_result.supporting_rules, max_rules=5)
-            if rules_text:
-                lines.append(f"\n**Literature Rules Supporting This Analysis:**{rules_text}")
-    
-    lines.append("\n> Note: Simulation-backed reasoning. This is not authoritative database data.")
-    return "\n".join(lines)
+    Returns:
+        {"status": "printed to console"}
+    """
+    visualize_graph()
+    return {"status": "Graph structure printed to console"}
 
 
-def run_pipeline(material_name: str, stream_callback: callable):
-    # Use the callback function to send messages to the client
-
-    stream_callback("🔹 Step 1: Parsing dataset...\n\n")
-    try:
-        parsed = parse_dataset(material_name)
-        is_db_hit = isinstance(parsed, dict) and (
-            ("material_id" in parsed) or ("formula_pretty" in parsed)
-        ) and len(parsed) > 0
-    except Exception as e:
-        stream_callback(f"Data lookup failed: {e}\n\n")
-        parsed = None
-        is_db_hit = False
-
-    if is_db_hit:
-        stream_callback("🔹 Step 2: Analyzing results...\n")
-        analysis = analyze_material(parsed)
-
-        stream_callback("🔹 Step 3: Generating hypothesis...\n")
-        hypothesis = generate_hypothesis(parsed)
-
-        markdown_output = assemble_markdown(parsed, analysis, hypothesis)
-
-        # Send final markdown report
-        stream_callback(markdown_output)
-        return
-
-    # --- Simulation route (no authoritative DB hit) ---
-    stream_callback("🔹 Database miss → Routing to simulation agent...\n")
-    sim = run_simulation_agent(material_name)
-
-    # Minimal markdown assembly for simulation mode
-    sim_markdown = assemble_simulation_markdown(sim)
-
-    # Send final simulation markdown
-    stream_callback(sim_markdown)
-    return
-
-
-# --- API Endpoint Definition ---
 @app.post("/api/analyze")
-async def analyze_material_endpoint(request: Request):
-    try:
-        data = await request.json()
-        material_name = data.get("material_name")
-        if not material_name:
-            return {"error": "Material name not provided"}, 400
-    except json.JSONDecodeError:
-        return {"error": "Invalid JSON format"}, 400
-
-    # 1. Create a Queue to pass data from the Thread -> Async Response
-    queue = asyncio.Queue()
+async def analyze_material(request: dict):
+    """
+    Main analysis endpoint.
     
-    # 2. Get the running event loop (safe because this endpoint is async)
-    loop = asyncio.get_running_loop()
-
-    def sync_pipeline_wrapper():
+    Analyzes a material using the StateGraph pipeline.
+    Streams markdown output to the client.
+    
+    Request body:
+        {
+            "material_name": "NaCl"  # Material formula
+        }
+    
+    Returns:
+        StreamingResponse with markdown formatted analysis
+    """
+    
+    # ===== VALIDATE INPUT =====
+    material_name = request.get("material_name", "").strip()
+    
+    if not material_name:
+        raise HTTPException(
+            status_code=400,
+            detail="material_name is required in request body"
+        )
+    
+    # ===== RUN PIPELINE & STREAM OUTPUT =====
+    async def stream_analysis() -> AsyncGenerator[str, None]:
         """
-        This runs in a separate thread. It executes the blocking run_pipeline logic
-        and pushes results into the async queue using run_coroutine_threadsafe.
+        Run the pipeline and stream output line by line.
         """
-        def callback(chunk: str):
-            # Schedule the "put" operation on the main event loop
-            asyncio.run_coroutine_threadsafe(queue.put(chunk), loop)
-
         try:
-            # --- EXECUTE YOUR PIPELINE HERE ---
-            # Ensure 'run_pipeline' is imported/defined in your file context
-            run_pipeline(material_name, callback)
+            # Get compiled graph
+            graph = get_pipeline_graph()
+            
+            # Initialize state
+            initial_state = create_initial_state(material_name)
+            
+            # Stream: Pipeline starting
+            yield "# Material Analysis: " + material_name + "\n\n"
+            yield "**Status:** Processing...\n\n"
+            
+            # Run the graph (this is async and awaits each node)
+            print(f"\n[API] Starting pipeline for: {material_name}")
+            final_state = await graph.ainvoke(initial_state)
+            
+            # Extract the formatted output
+            formatted_output = final_state.get("formatted_output", "")
+            pipeline_status = final_state.get("pipeline_status", "unknown")
+            
+            # Stream: Replace processing status with actual status
+            if pipeline_status == "success":
+                yield "**Status:** ✓ Complete\n\n"
+            else:
+                yield "**Status:** ⚠ Completed with errors\n\n"
+            
+            # Stream: The full formatted output
+            yield formatted_output
+            
+            print(f"[API] Pipeline complete - Status: {pipeline_status}")
+        
         except Exception as e:
-            # If pipeline crashes, send error to UI
-            asyncio.run_coroutine_threadsafe(queue.put(f"\n\nError in pipeline: {str(e)}"), loop)
-        finally:
-            # 3. Send None to signal the end of the stream
-            asyncio.run_coroutine_threadsafe(queue.put(None), loop)
-
-    # 4. Start the pipeline in a background thread executor
-    loop.run_in_executor(None, sync_pipeline_wrapper)
-
-    # 5. Define the Async Generator for StreamingResponse
-    async def response_generator():
-        while True:
-            # Await the next chunk (non-blocking)
-            chunk = await queue.get()
-            
-            # If we receive the 'None' sentinel, stop streaming
-            if chunk is None:
-                break
-            
-            yield chunk
-
+            # Stream error message
+            print(f"[API] Pipeline exception: {e}")
+            yield f"\n\n# Error\n\nAn unexpected error occurred:\n\n```\n{str(e)}\n```"
+    
+    # Return streaming response
     return StreamingResponse(
-        response_generator(),
+        stream_analysis(),
         media_type="text/plain"
+    )
+
+
+@app.post("/api/analyze-debug")
+async def analyze_material_debug(request: dict):
+    """
+    Debug endpoint: Same as /api/analyze but prints full state at each step.
+    
+    Useful for understanding what's happening in the pipeline.
+    """
+    
+    material_name = request.get("material_name", "").strip()
+    
+    if not material_name:
+        raise HTTPException(
+            status_code=400,
+            detail="material_name is required in request body"
+        )
+    
+    async def stream_debug() -> AsyncGenerator[str, None]:
+        try:
+            graph = get_pipeline_graph()
+            initial_state = create_initial_state(material_name)
+            
+            yield f"DEBUG: Starting pipeline for {material_name}\n\n"
+            yield "INITIAL STATE:\n"
+            yield json.dumps(initial_state, indent=2, default=str) + "\n\n"
+            
+            # Run graph with streaming
+            final_state = await graph.ainvoke(initial_state)
+            
+            yield "\n\nFINAL STATE:\n"
+            yield json.dumps(final_state, indent=2, default=str) + "\n\n"
+            
+            yield "\nFORMATTED OUTPUT:\n"
+            yield final_state.get("formatted_output", "No output") + "\n"
+        
+        except Exception as e:
+            yield f"ERROR: {str(e)}\n"
+    
+    return StreamingResponse(
+        stream_debug(),
+        media_type="text/plain"
+    )
+
+
+@app.get("/docs")
+async def get_docs():
+    """
+    API documentation endpoint.
+    
+    FastAPI auto-generates this, but this shows how to customize.
+    """
+    return {
+        "endpoints": {
+            "POST /api/analyze": "Main analysis endpoint (streams markdown)",
+            "POST /api/analyze-debug": "Debug version (shows state at each step)",
+            "GET /health": "Health check",
+            "GET /debug/graph-structure": "Print graph structure to console"
+        }
+    }
+
+
+# ===== STARTUP/SHUTDOWN EVENTS =====
+
+@app.on_event("startup")
+async def startup_event():
+    """
+    Initialize on startup.
+    """
+    print("\n" + "="*60)
+    print("MatAgent-Forge API Starting Up")
+    print("="*60)
+    
+    # Pre-compile the graph
+    print("[Startup] Pre-compiling pipeline graph...")
+    graph = get_pipeline_graph()
+    print("[Startup] ✓ Graph pre-compiled and ready")
+    
+    # Print structure for debugging
+    visualize_graph()
+    
+    print("[Startup] ✓ API ready to accept requests")
+    print(f"[Startup] Available at: http://localhost:8000")
+    print(f"[Startup] Docs at: http://localhost:8000/docs")
+    print("="*60 + "\n")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """
+    Cleanup on shutdown.
+    """
+    print("\n[Shutdown] MatAgent-Forge API shutting down...")
+
+
+# ===== MAIN ENTRY POINT =====
+
+if __name__ == "__main__":
+    import uvicorn
+    
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=8000,
+        reload=True
     )

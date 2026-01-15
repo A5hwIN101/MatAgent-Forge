@@ -10,7 +10,7 @@ from langchain_groq import ChatGroq
 from dotenv import load_dotenv
 import os
 import logging
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +109,7 @@ def format_rules_for_analysis(rules: List[Dict], max_rules: int = 5) -> str:
     return "\n".join(formatted)
 
 
-def analyze_material(parsed: dict) -> dict:
+def analyze_material_properties(parsed: dict) -> dict:
     """
     Analyze material properties and enhance with rule-based insights.
     
@@ -247,3 +247,47 @@ def analyze_material(parsed: dict) -> dict:
             analysis["Rule-Based Insights"] = "No matching rules found in literature for this material's properties."
 
     return analysis
+
+
+# ============================================================================
+# ANALYSIS AGENT CLASS - For LangGraph Integration
+# ============================================================================
+
+class AnalysisAgent:
+    """
+    AnalysisAgent analyzes material properties and generates insights.
+    
+    This agent is designed to work with the LangGraph pipeline.
+    """
+    
+    def __init__(self):
+        """Initialize the AnalysisAgent."""
+        self.llm = llm
+    
+    async def run(
+        self,
+        properties: Dict[str, Any],
+        formula: str = "Unknown"
+    ) -> Dict[str, Any]:
+        """
+        Analyze material properties.
+        
+        Args:
+            properties: Dictionary of material properties from lookup
+            formula: Material formula (for logging)
+        
+        Returns:
+            Dictionary with analysis results
+        """
+        try:
+            print(f"[AnalysisAgent.run] Analyzing {formula}")
+            
+            # Analyze material properties
+            analysis = analyze_material_properties(properties)
+            
+            print(f"[AnalysisAgent.run] ✓ Analysis complete for {formula}")
+            return analysis
+        
+        except Exception as e:
+            print(f"[AnalysisAgent.run] ✗ Error: {e}")
+            raise
