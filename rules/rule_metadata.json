@@ -1,0 +1,87 @@
+{
+  "http://arxiv.org/abs/2210.11931v1": {
+    "title": "Deep Reinforcement Learning for Inverse Inorganic Materials Design",
+    "authors": [
+      "Elton Pan",
+      "Christopher Karpovich",
+      "Elsa Olivetti"
+    ],
+    "url": "http://arxiv.org/abs/2210.11931v1",
+    "extraction_date": "2026-01-11T16:02:49.432596",
+    "rules_count": 1
+  },
+  "http://arxiv.org/abs/2504.00741v1": {
+    "title": "Accelerated Inorganic Materials Design with Generative AI Agents",
+    "authors": [
+      "Izumi Takahara",
+      "Teruyasu Mizoguchi",
+      "Bang Liu"
+    ],
+    "url": "http://arxiv.org/abs/2504.00741v1",
+    "extraction_date": "2026-01-11T16:02:50.236970",
+    "rules_count": 1
+  },
+  "http://arxiv.org/abs/1904.10423v2": {
+    "title": "A Data Ecosystem to Support Machine Learning in Materials Science",
+    "authors": [
+      "Ben Blaiszik",
+      "Logan Ward",
+      "Marcus Schwarting",
+      "Jonathon Gaff",
+      "Ryan Chard",
+      "Daniel Pike",
+      "Kyle Chard",
+      "Ian Foster"
+    ],
+    "url": "http://arxiv.org/abs/1904.10423v2",
+    "extraction_date": "2026-01-12T23:26:43.503985",
+    "rules_count": 11,
+    "rejected_count": 0
+  },
+  "http://arxiv.org/abs/1905.03938v1": {
+    "title": "Machine learning-guided synthesis of advanced inorganic materials",
+    "authors": [
+      "Bijun Tang",
+      "Yuhao Lu",
+      "Jiadong Zhou",
+      "Han Wang",
+      "Prafful Golani",
+      "Manzhang Xu",
+      "Quan Xu",
+      "Cuntai Guan",
+      "Zheng Liu"
+    ],
+    "url": "http://arxiv.org/abs/1905.03938v1",
+    "extraction_date": "2026-01-11T16:02:50.499801",
+    "rules_count": 1
+  },
+  "http://arxiv.org/abs/2404.06120v1": {
+    "title": "Predicting the future applications of any stoichiometric inorganic material through learning from past literature",
+    "authors": [
+      "Yu Wu",
+      "Teng Liu",
+      "Haiyang Song",
+      "Yinghe Zhao",
+      "Jinxing Gu",
+      "Kailang Liu",
+      "Huiqiao Li",
+      "Jinlan Wang",
+      "Tianyou Zhai"
+    ],
+    "url": "http://arxiv.org/abs/2404.06120v1",
+    "extraction_date": "2026-01-11T16:02:58.681550",
+    "rules_count": 2
+  },
+  "http://arxiv.org/abs/1808.10869v2": {
+    "title": "The Phase Stability Network of all Inorganic Materials",
+    "authors": [
+      "Vinay I. Hegde",
+      "Muratahan Aykol",
+      "Scott Kirklin",
+      "Chris Wolverton"
+    ],
+    "url": "http://arxiv.org/abs/1808.10869v2",
+    "extraction_date": "2026-01-11T16:03:28.735297",
+    "rules_count": 1
+  }
+}
